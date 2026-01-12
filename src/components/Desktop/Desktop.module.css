@@ -12,10 +12,11 @@
 
 .desktopIcons {
     display: grid;
-    grid-template-columns: repeat(auto-fill, 100px);
-    grid-template-rows: repeat(auto-fill, 110px);
+    grid-template-columns: repeat(20, 100px);
+    grid-template-rows: repeat(10, 110px);
     gap: 10px;
     height: 100%;
+    width: 100%;
 }
 
 .icon {
@@ -46,6 +47,15 @@
     justify-content: center;
     color: white;
     border-radius: 12px;
+}
+
+.dragging {
+    cursor: grabbing;
+}
+
+.dragging .iconImg {
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .iconName {
