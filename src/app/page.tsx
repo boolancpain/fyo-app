@@ -20,14 +20,14 @@ export default function Home() {
         setAppState('DESKTOP');
     };
 
-    if (appState === 'LOCK') {
-        return <LockScreen onLogin={handleLogin} />;
-    }
-
     return (
-        <main style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
+        <main style={{ height: '100vh', width: '100vw', overflow: 'hidden', position: 'relative' }}>
             <Desktop />
-            <Taskbar />
+            <Taskbar onLock={() => setAppState('LOCK')} />
+            <LockScreen
+                isVisible={appState === 'LOCK'}
+                onLogin={handleLogin}
+            />
         </main>
     );
 }
