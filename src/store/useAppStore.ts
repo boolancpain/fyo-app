@@ -11,9 +11,12 @@ export interface App {
 interface AppStore {
     apps: App[];
     updateAppPosition: (appId: string, position: { row: number; col: number }) => void;
+    addApp: (app: Omit<App, 'gridPosition'>) => void;
+    deleteApp: (appId: string) => void;
+    updateApp: (appId: string, updates: Partial<Omit<App, 'id' | 'gridPosition'>>) => void;
 }
 
-export const useAppStore = create<AppStore>((set) => ({
+export const useAppStore = create<AppStore>((set, get) => ({
     apps: [
         { id: 'google', name: 'Google', launchUrl: 'https://www.google.com/search?igu=1', icon: 'search', gridPosition: { row: 1, col: 1 } },
         { id: 'vscode', name: 'VS Code', launchUrl: 'https://vscode.dev', icon: 'monitor', gridPosition: { row: 2, col: 1 } },
@@ -45,5 +48,27 @@ export const useAppStore = create<AppStore>((set) => ({
                 ),
             };
         });
+    },
+    addApp: (app) => {
+        const { apps } = get();
+        // Find next available grid position (simple logic: end of first column)
+        const maxRow = Math.max(...apps.map(a => a.gridPosition.row), 0);
+        const newApp: App = {
+            ...app,
+            gridPosition: { row: maxRow + 1, col: 1 }
+        };
+        set({ apps: [...apps, newApp] });
+    },
+    deleteApp: (appId) => {
+        set((state) => ({
+            apps: state.apps.filter(app => app.id !== appId)
+        }));
+    },
+    updateApp: (appId, updates) => {
+        set((state) => ({
+            apps: state.apps.map(app =>
+                app.id === appId ? { ...app, ...updates } : app
+            )
+        }));
     },
 }));
