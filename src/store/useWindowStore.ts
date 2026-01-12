@@ -38,7 +38,7 @@ export const useWindowStore = create<WindowStore>((set, get) => ({
             title: app.name,
             launchUrl: app.launchUrl,
             position: { x: 100 + offset, y: 100 + offset },
-            size: { width: 800, height: 600 },
+            size: { width: 1040, height: 690 },
             zIndex: nextZIndex,
             state: 'NORMAL',
             isFocused: true,
