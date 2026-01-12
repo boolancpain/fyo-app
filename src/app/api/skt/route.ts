@@ -1,62 +1,70 @@
-import * as NotionSDK from '@notionhq/client';
 import { NextResponse } from 'next/server';
 
-// Handle potential ESM/CommonJS interop
-const Client = (NotionSDK as any).Client || (NotionSDK as any).default?.Client;
-
-if (!Client) {
-    console.error('Failed to find Notion Client in SDK:', NotionSDK);
-}
-
-const notion = Client ? new Client({
-    auth: process.env.NOTION_SECRET,
-}) : null;
-
-const databaseId = process.env.NOTION_DATABASE_ID!;
+const NOTION_SECRET = process.env.NOTION_SECRET;
+const DATABASE_ID = process.env.NOTION_DATABASE_ID;
 
 export async function GET() {
-    if (!notion) {
-        return NextResponse.json({ error: 'Notion SDK failed to initialize' }, { status: 500 });
-    }
-    if (!process.env.NOTION_SECRET || !process.env.NOTION_DATABASE_ID) {
+    if (!NOTION_SECRET || !DATABASE_ID) {
+        console.error('Missing Notion environment variables');
         return NextResponse.json({ error: 'Notion configuration is missing' }, { status: 500 });
     }
 
     try {
-        console.log('Notion Client keys:', Object.keys(notion));
+        const url = `https://api.notion.com/v1/databases/${DATABASE_ID.trim()}/query`;
 
-        const cleanDatabaseId = databaseId.trim();
-        console.log('Querying Notion database:', cleanDatabaseId);
-
-        const response = await (notion as any).databases.query({
-            database_id: cleanDatabaseId,
-            sorts: [
-                {
-                    property: '이름',
-                    direction: 'ascending',
-                },
-            ],
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${NOTION_SECRET}`,
+                'Notion-Version': '2022-06-28',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                sorts: [
+                    {
+                        property: '이름',
+                        direction: 'ascending',
+                    },
+                ],
+            }),
+            cache: 'no-store', // Disable caching for the API route
         });
 
-        console.log('Notion response received. Result count:', response.results.length);
-
-        if (response.results.length > 0) {
-            console.log('Sample properties keys:', Object.keys((response.results[0] as any).properties));
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Notion API error response:', errorData);
+            throw new Error(errorData.message || 'Failed to fetch from Notion');
         }
 
-        const accounts = response.results.map((page: any) => {
+        const data = await response.json();
+        const results = data.results || [];
+
+        const accounts = results.map((page: any) => {
             const props = page.properties;
             if (!props) return null;
 
-            // Helper to extract text from rich_text or title
+            // Helper to extract text from various Notion types
             const getText = (propName: string) => {
                 const prop = props[propName];
-                if (!prop) {
-                    console.warn(`Property not found: ${propName}`);
-                    return '-';
+                if (!prop) return '-';
+
+                const type = prop.type;
+                switch (type) {
+                    case 'title':
+                    case 'rich_text':
+                        return prop[type].map((item: any) => item.plain_text).join('') || '-';
+                    case 'select':
+                    case 'status':
+                        return prop[type]?.name || '-';
+                    case 'multi_select':
+                        return prop.multi_select.map((item: any) => item.name).join(', ') || '-';
+                    case 'email':
+                    case 'phone_number':
+                    case 'url':
+                        return prop[type] || '-';
+                    default:
+                        return '-';
                 }
-                const arr = prop.rich_text || prop.title || [];
-                return arr.map((item: any) => item.plain_text).join('') || '-';
             };
 
             // Helper to extract date
@@ -69,14 +77,14 @@ export async function GET() {
             // Helper to extract number
             const getNumber = (propName: string) => {
                 const prop = props[propName];
-                if (!prop) return 0;
+                if (!prop || prop.type !== 'number') return 0;
                 return prop.number || 0;
             };
 
             return {
                 id: page.id,
                 name: getText('이름'),
-                enrollDate: getDate('최초가입일'),
+                enrollDate: getDate('가입일'),
                 account: getText('계정'),
                 pw: getText('비밀번호'),
                 years: getNumber('가입년수'),
@@ -86,17 +94,14 @@ export async function GET() {
             };
         }).filter(Boolean);
 
+        console.log('Processed Accounts:', accounts);
+
+
         return NextResponse.json(accounts);
     } catch (error: any) {
-        console.error('Detailed Notion API Error:', {
-            message: error.message,
-            code: error.code,
-            status: error.status,
-            body: error.body
-        });
+        console.error('API Route Error:', error);
         return NextResponse.json({
             error: error.message || 'Failed to fetch Notion data',
-            details: error.code
         }, { status: 500 });
     }
 }
