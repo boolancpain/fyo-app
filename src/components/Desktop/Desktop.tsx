@@ -10,19 +10,19 @@ import Window from '@/components/Window/Window';
 
 const getIcon = (iconName: string) => {
     switch (iconName) {
-        case 'search': return <Search size={24} />;
-        case 'monitor': return <Monitor size={24} />;
-        case 'github': return <Github size={24} />;
+        case 'search': return <Search size={36} />;
+        case 'monitor': return <Monitor size={36} />;
+        case 'github': return <Github size={36} />;
         default:
             if (iconName.startsWith('http')) {
-                return <img src={iconName} alt="App Icon" style={{ width: 24, height: 24, borderRadius: 4 }} />;
+                return <img src={iconName} alt="App Icon" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} />;
             }
-            return <Monitor size={24} />;
+            return <Monitor size={36} />;
     }
 };
 
 import ContextMenu from './ContextMenu';
-import { AddEditModal, DeleteModal } from './AppModals';
+import { AddEditModal, DeleteModal, WallpaperModal } from './AppModals';
 
 export default function Desktop() {
     const { windows, openWindow } = useWindowStore();
@@ -42,6 +42,7 @@ export default function Desktop() {
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isWallpaperOpen, setIsWallpaperOpen] = useState(false);
     const [selectedApp, setSelectedApp] = useState<App | null>(null);
 
     const handleContextMenu = (e: React.MouseEvent, appId: string | null = null) => {
@@ -76,11 +77,15 @@ export default function Desktop() {
     };
 
     const handleChangeWallpaper = () => {
-        const url = prompt('Enter new wallpaper URL:', configs['wallpaper'] || '');
+        setIsWallpaperOpen(true);
+        setContextMenu(null);
+    };
+
+    const handleWallpaperConfirm = (url: string) => {
         if (url) {
             updateConfig('wallpaper', url);
         }
-        setContextMenu(null);
+        setIsWallpaperOpen(false);
     };
 
     const onDragStart = (e: React.DragEvent, appId: string) => {
@@ -105,8 +110,11 @@ export default function Desktop() {
         const x = e.clientX - container.left;
         const y = e.clientY - container.top;
 
-        const col = Math.max(1, Math.floor(x / 110) + 1);
-        const row = Math.max(1, Math.floor(y / 120) + 1);
+        const cellWidth = container.width / 12;
+        const cellHeight = container.height / 6;
+
+        const col = Math.min(12, Math.max(1, Math.floor(x / cellWidth) + 1));
+        const row = Math.min(6, Math.max(1, Math.floor(y / cellHeight) + 1));
 
         updateAppPosition(draggedAppId, { row, col });
         setDraggedAppId(null);
@@ -184,6 +192,13 @@ export default function Desktop() {
                 onClose={() => setIsDeleteOpen(false)}
                 appName={selectedApp?.name || ''}
                 onConfirm={() => selectedApp && deleteApp(selectedApp.id)}
+            />
+
+            <WallpaperModal
+                isOpen={isWallpaperOpen}
+                onClose={() => setIsWallpaperOpen(false)}
+                currentUrl={configs['wallpaper'] || ''}
+                onConfirm={handleWallpaperConfirm}
             />
 
             {windows.map((window) => (

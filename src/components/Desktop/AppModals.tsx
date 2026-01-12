@@ -122,3 +122,51 @@ export function DeleteModal({ isOpen, onClose, appName, onConfirm }: DeleteModal
         </div>
     );
 }
+
+interface WallpaperModalProps extends ModalProps {
+    currentUrl: string;
+    onConfirm: (url: string) => void;
+}
+
+export function WallpaperModal({ isOpen, onClose, currentUrl, onConfirm }: WallpaperModalProps) {
+    useEscapeKey(isOpen, onClose);
+    const [url, setUrl] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setUrl(currentUrl || '');
+        }
+    }, [isOpen, currentUrl]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onConfirm(url);
+        onClose();
+    };
+
+    return (
+        <div className={styles.modalOverlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+            <div className={styles.modal} onMouseDown={e => e.stopPropagation()}>
+                <h2>배경화면 변경</h2>
+                <form onSubmit={handleSubmit}>
+                    <div className={styles.formGroup}>
+                        <label>이미지 URL</label>
+                        <input
+                            value={url}
+                            onChange={e => setUrl(e.target.value)}
+                            placeholder="https://..."
+                            required
+                            autoFocus
+                        />
+                    </div>
+                    <div className={styles.actions}>
+                        <button type="button" className={`${styles.btn} ${styles.btnCancel}`} onClick={onClose}>취소</button>
+                        <button type="submit" className={`${styles.btn} ${styles.btnConfirm}`}>변경</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
