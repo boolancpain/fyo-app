@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './Desktop.module.css';
 import { useWindowStore } from '@/store/useWindowStore';
 import { useAppStore, App } from '@/store/useAppStore';
+import { useConfigStore } from '@/store/useConfigStore';
 import { Monitor, Github, Search } from 'lucide-react';
 import Window from '@/components/Window/Window';
 
@@ -25,8 +26,14 @@ import { AddEditModal, DeleteModal } from './AppModals';
 
 export default function Desktop() {
     const { windows, openWindow } = useWindowStore();
-    const { apps, updateAppPosition, addApp, deleteApp, updateApp } = useAppStore();
+    const { apps, updateAppPosition, addApp, deleteApp, updateApp, fetchApps } = useAppStore();
+    const { configs, updateConfig } = useConfigStore();
     const [draggedAppId, setDraggedAppId] = useState<string | null>(null);
+
+    // Fetch apps on mount
+    useEffect(() => {
+        fetchApps();
+    }, [fetchApps]);
 
     // Context Menu State
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, targetId: string | null } | null>(null);
@@ -68,6 +75,14 @@ export default function Desktop() {
         }
     };
 
+    const handleChangeWallpaper = () => {
+        const url = prompt('Enter new wallpaper URL:', configs['wallpaper'] || '');
+        if (url) {
+            updateConfig('wallpaper', url);
+        }
+        setContextMenu(null);
+    };
+
     const onDragStart = (e: React.DragEvent, appId: string) => {
         setDraggedAppId(appId);
         e.dataTransfer.effectAllowed = 'move';
@@ -104,7 +119,13 @@ export default function Desktop() {
     };
 
     return (
-        <div className={styles.desktop} onContextMenu={(e) => handleContextMenu(e)}>
+        <div
+            className={styles.desktop}
+            onContextMenu={(e) => handleContextMenu(e)}
+            style={{
+                backgroundImage: `url(${configs['wallpaper'] || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=2560'})`
+            }}
+        >
             <div
                 className={styles.desktopIcons}
                 onDragOver={onDragOver}
@@ -141,6 +162,7 @@ export default function Desktop() {
                     onAdd={() => setIsAddOpen(true)}
                     onDelete={() => setIsDeleteOpen(true)}
                     onInfo={() => setIsEditOpen(true)}
+                    onWallpaperChange={handleChangeWallpaper}
                 />
             )}
 

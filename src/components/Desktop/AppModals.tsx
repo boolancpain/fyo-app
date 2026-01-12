@@ -15,7 +15,21 @@ interface AddEditModalProps extends ModalProps {
     onConfirm: (data: { name: string; url: string; icon: string }) => void;
 }
 
+
+function useEscapeKey(isOpen: boolean, onClose: () => void) {
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        if (isOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+}
+
 export function AddEditModal({ isOpen, onClose, mode, app, onConfirm }: AddEditModalProps) {
+    useEscapeKey(isOpen, onClose);
     const [name, setName] = useState('');
     const [url, setUrl] = useState('');
     const [icon, setIcon] = useState('');
@@ -41,8 +55,8 @@ export function AddEditModal({ isOpen, onClose, mode, app, onConfirm }: AddEditM
     };
 
     return (
-        <div className={styles.modalOverlay} onClick={onClose}>
-            <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <div className={styles.modalOverlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+            <div className={styles.modal} onMouseDown={e => e.stopPropagation()}>
                 <h2>{mode === 'ADD' ? '앱 추가' : '앱 정보'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className={styles.formGroup}>
@@ -91,11 +105,13 @@ interface DeleteModalProps extends ModalProps {
 }
 
 export function DeleteModal({ isOpen, onClose, appName, onConfirm }: DeleteModalProps) {
+    useEscapeKey(isOpen, onClose);
+
     if (!isOpen) return null;
 
     return (
-        <div className={styles.modalOverlay} onClick={onClose}>
-            <div className={styles.modal} onClick={e => e.stopPropagation()}>
+        <div className={styles.modalOverlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+            <div className={styles.modal} onMouseDown={e => e.stopPropagation()}>
                 <h2>앱 삭제</h2>
                 <p className={styles.description}>'{appName}' 앱을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.</p>
                 <div className={styles.actions}>

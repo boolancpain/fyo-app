@@ -1,0 +1,29 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model App {
+  id        String   @id @default(uuid())
+  name      String
+  launchUrl String
+  icon      String
+  gridRow   Int
+  gridCol   Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("apps")
+}
+
+model Config {
+  id    String @id
+  value String @db.Text
+  
+  @@map("configs")
+}
+

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import styles from './ContextMenu.module.css';
-import { Info, Trash2, Edit2, PlusCircle } from 'lucide-react';
+import { Info, Trash2, Edit2, PlusCircle, Image as ImageIcon } from 'lucide-react';
 
 interface ContextMenuProps {
     x: number;
@@ -11,6 +11,7 @@ interface ContextMenuProps {
     onAdd: () => void;
     onDelete: () => void;
     onInfo: () => void;
+    onWallpaperChange?: () => void;
     targetAppId: string | null;
 }
 
@@ -21,6 +22,7 @@ export default function ContextMenu({
     onAdd,
     onDelete,
     onInfo,
+    onWallpaperChange,
     targetAppId
 }: ContextMenuProps) {
     const menuRef = useRef<HTMLDivElement>(null);
@@ -48,27 +50,40 @@ export default function ContextMenu({
             style={{ top: `${top}px`, left: `${left}px` }}
             onContextMenu={(e) => e.preventDefault()}
         >
-            <button
-                className={`${styles.menuItem} ${!isAppSelected ? styles.disabled : ''}`}
-                onClick={() => { if (isAppSelected) { onInfo(); onClose(); } }}
-            >
-                <Info size={16} /> 앱 정보
-            </button>
-            <button
-                className={`${styles.menuItem} ${!isAppSelected ? styles.disabled : ''}`}
-                onClick={() => { if (isAppSelected) { onDelete(); onClose(); } }}
-            >
-                <Trash2 size={16} /> 앱 삭제
-            </button>
+            {isAppSelected ? (
+                <>
+                    <button
+                        className={styles.menuItem}
+                        onClick={() => { onInfo(); onClose(); }}
+                    >
+                        <Info size={16} /> 앱 정보
+                    </button>
+                    <button
+                        className={styles.menuItem}
+                        onClick={() => { onDelete(); onClose(); }}
+                    >
+                        <Trash2 size={16} /> 앱 삭제
+                    </button>
+                    <div className={styles.divider} />
+                </>
+            ) : null}
 
-            <div className={styles.divider} />
-
-            <button
-                className={`${styles.menuItem} ${isAppSelected ? styles.disabled : ''}`}
-                onClick={() => { if (!isAppSelected) { onAdd(); onClose(); } }}
-            >
-                <PlusCircle size={16} /> 앱 추가
-            </button>
+            {!isAppSelected ? (
+                <>
+                    <button
+                        className={styles.menuItem}
+                        onClick={() => { onAdd(); onClose(); }}
+                    >
+                        <PlusCircle size={16} /> 앱 추가
+                    </button>
+                    <button
+                        className={styles.menuItem}
+                        onClick={() => { if (onWallpaperChange) { onWallpaperChange(); onClose(); } }}
+                    >
+                        <ImageIcon size={16} /> 배경화면 변경
+                    </button>
+                </>
+            ) : null}
         </div>
     );
 }

@@ -10,65 +10,138 @@ export interface App {
 
 interface AppStore {
     apps: App[];
-    updateAppPosition: (appId: string, position: { row: number; col: number }) => void;
-    addApp: (app: Omit<App, 'gridPosition'>) => void;
-    deleteApp: (appId: string) => void;
-    updateApp: (appId: string, updates: Partial<Omit<App, 'id' | 'gridPosition'>>) => void;
+    fetchApps: () => Promise<void>;
+    updateAppPosition: (appId: string, position: { row: number; col: number }) => Promise<void>;
+    addApp: (app: Omit<App, 'gridPosition'>) => Promise<void>;
+    deleteApp: (appId: string) => Promise<void>;
+    updateApp: (appId: string, updates: Partial<Omit<App, 'id' | 'gridPosition'>>) => Promise<void>;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
-    apps: [
-        { id: 'google', name: 'Google', launchUrl: 'https://www.google.com/search?igu=1', icon: 'search', gridPosition: { row: 1, col: 1 } },
-        { id: 'vscode', name: 'VS Code', launchUrl: 'https://vscode.dev', icon: 'monitor', gridPosition: { row: 2, col: 1 } },
-        { id: 'github', name: 'GitHub', launchUrl: 'https://github.com', icon: 'github', gridPosition: { row: 3, col: 1 } },
-    ],
-    updateAppPosition: (appId, position) => {
-        set((state) => {
-            const targetApp = state.apps.find(
-                (a) => a.gridPosition.row === position.row && a.gridPosition.col === position.col
+    apps: [],
+    fetchApps: async () => {
+        try {
+            const response = await fetch('/api/apps');
+            const data = await response.json();
+            if (Array.isArray(data)) {
+                set({
+                    apps: data.map(app => ({
+                        id: app.id,
+                        name: app.name,
+                        icon: app.icon,
+                        launchUrl: app.launchUrl,
+                        gridPosition: { row: app.gridRow, col: app.gridCol }
+                    }))
+                });
+            }
+        } catch (error) {
+            console.error('Failed to fetch apps:', error);
+        }
+    },
+    updateAppPosition: async (appId, position) => {
+        const { apps } = get();
+        const targetApp = apps.find(
+            (a) => a.gridPosition.row === position.row && a.gridPosition.col === position.col
+        );
+
+        const draggedApp = apps.find((a) => a.id === appId);
+        if (!draggedApp) return;
+
+        // Optimistic update
+        const originalApps = [...apps];
+        let newApps = [...apps];
+
+        if (targetApp && targetApp.id !== appId) {
+            // Swap positions
+            newApps = apps.map((app) => {
+                if (app.id === appId) return { ...app, gridPosition: position };
+                if (app.id === targetApp.id) return { ...app, gridPosition: draggedApp.gridPosition };
+                return app;
+            });
+        } else {
+            newApps = apps.map((app) =>
+                app.id === appId ? { ...app, gridPosition: position } : app
             );
+        }
+
+        set({ apps: newApps });
+
+        try {
+            // Update on server
+            await fetch(`/api/apps/${appId}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ gridRow: position.row, gridCol: position.col }),
+            });
 
             if (targetApp && targetApp.id !== appId) {
-                // Swap positions if another app is already there
-                const draggedApp = state.apps.find((a) => a.id === appId);
-                if (!draggedApp) return state;
-
-                return {
-                    apps: state.apps.map((app) => {
-                        if (app.id === appId) return { ...app, gridPosition: position };
-                        if (app.id === targetApp.id) return { ...app, gridPosition: draggedApp.gridPosition };
-                        return app;
-                    }),
-                };
+                await fetch(`/api/apps/${targetApp.id}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ gridRow: draggedApp.gridPosition.row, gridCol: draggedApp.gridPosition.col }),
+                });
             }
-
-            return {
-                apps: state.apps.map((app) =>
-                    app.id === appId ? { ...app, gridPosition: position } : app
-                ),
-            };
-        });
+        } catch (error) {
+            console.error('Failed to update position:', error);
+            set({ apps: originalApps }); // Rollback
+        }
     },
-    addApp: (app) => {
+    addApp: async (app) => {
         const { apps } = get();
-        // Find next available grid position (simple logic: end of first column)
         const maxRow = Math.max(...apps.map(a => a.gridPosition.row), 0);
-        const newApp: App = {
-            ...app,
-            gridPosition: { row: maxRow + 1, col: 1 }
-        };
-        set({ apps: [...apps, newApp] });
+        const gridPosition = { row: maxRow + 1, col: 1 };
+
+        try {
+            const response = await fetch('/api/apps', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: app.name,
+                    launchUrl: app.launchUrl,
+                    icon: app.icon,
+                    gridRow: gridPosition.row,
+                    gridCol: gridPosition.col,
+                }),
+            });
+            const newAppData = await response.json();
+            const newApp: App = {
+                id: newAppData.id,
+                name: newAppData.name,
+                launchUrl: newAppData.launchUrl,
+                icon: newAppData.icon,
+                gridPosition: { row: newAppData.gridRow, col: newAppData.gridCol }
+            };
+            set({ apps: [...apps, newApp] });
+        } catch (error) {
+            console.error('Failed to add app:', error);
+        }
     },
-    deleteApp: (appId) => {
-        set((state) => ({
-            apps: state.apps.filter(app => app.id !== appId)
-        }));
+    deleteApp: async (appId) => {
+        const { apps } = get();
+        const originalApps = [...apps];
+        set({ apps: apps.filter(app => app.id !== appId) });
+
+        try {
+            await fetch(`/api/apps/${appId}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error('Failed to delete app:', error);
+            set({ apps: originalApps });
+        }
     },
-    updateApp: (appId, updates) => {
-        set((state) => ({
-            apps: state.apps.map(app =>
+    updateApp: async (appId, updates) => {
+        const { apps } = get();
+        const originalApps = [...apps];
+        set({
+            apps: apps.map(app =>
                 app.id === appId ? { ...app, ...updates } : app
             )
-        }));
+        });
+
+        try {
+            await fetch(`/api/apps/${appId}`, {
+                method: 'PATCH',
+                body: JSON.stringify(updates),
+            });
+        } catch (error) {
+            console.error('Failed to update app:', error);
+            set({ apps: originalApps });
+        }
     },
 }));

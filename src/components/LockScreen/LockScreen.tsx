@@ -11,14 +11,27 @@ export default function LockScreen({ onLogin }: Props) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (password === '1234') {
-            onLogin();
-        } else {
+
+        try {
+            const response = await fetch('/api/auth/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password }),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                onLogin();
+            } else {
+                setError(true);
+                setPassword('');
+                setTimeout(() => setError(false), 2000);
+            }
+        } catch (err) {
+            console.error('Login failed', err);
             setError(true);
-            setPassword('');
-            setTimeout(() => setError(false), 2000);
         }
     };
 
@@ -35,7 +48,7 @@ export default function LockScreen({ onLogin }: Props) {
                 <form onSubmit={handleSubmit} className={styles.form}>
                     <input
                         type="password"
-                        placeholder="Enter Passcode (1234)"
+                        placeholder="Enter Passcode"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className={error ? styles.inputError : ''}
