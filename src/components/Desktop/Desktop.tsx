@@ -5,20 +5,41 @@ import styles from './Desktop.module.css';
 import { useWindowStore } from '@/store/useWindowStore';
 import { useAppStore, App } from '@/store/useAppStore';
 import { useConfigStore } from '@/store/useConfigStore';
+import * as LucideIcons from 'lucide-react';
 import { Monitor, Github, Search, File } from 'lucide-react';
 import Window from '@/components/Window/Window';
 
-const getIcon = (iconName: string) => {
-    switch (iconName) {
-        case 'search': return <Search size={64} />;
-        case 'monitor': return <Monitor size={64} />;
-        case 'github': return <Github size={64} />;
-        default:
-            if (iconName.startsWith('http')) {
-                return <img src={iconName} alt="App Icon" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} />;
-            }
-            return <File size={64} />;
+const AppIcon = ({ src }: { src: string }) => {
+    const [error, setError] = useState(false);
+
+    // Reset error state if the source URL changes
+    useEffect(() => {
+        setError(false);
+    }, [src]);
+
+    if (error || !src) {
+        return <File size={64} />;
     }
+
+    return (
+        <img
+            src={src}
+            alt="App Icon"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }}
+            onError={() => setError(true)}
+        />
+    );
+};
+
+const getIcon = (iconName: string | null) => {
+    if (!iconName) return <File size={64} />;
+
+    // Only URL-like strings are treated as custom icons
+    if (iconName.startsWith('http') || iconName.startsWith('/api/blob') || iconName.startsWith('/')) {
+        return <AppIcon src={iconName} />;
+    }
+
+    return <File size={64} />;
 };
 
 import ContextMenu from './ContextMenu';

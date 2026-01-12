@@ -71,7 +71,8 @@ export default function Window({ win }: Props) {
         >
             <div className={styles.titleBar} onMouseDown={handleMouseDown} onDoubleClick={() => toggleMaximize(win.windowId)}>
                 <div className={styles.titleText}>
-                    <span>{win.title}</span>
+                    <span className={styles.title}>{win.title}</span>
+                    <span className={styles.url}>{win.launchUrl}</span>
                 </div>
                 <div className={styles.controls}>
                     <button className={`${styles.controlBtn} ${styles.minimize}`} onClick={(e) => { e.stopPropagation(); minimizeWindow(win.windowId); }}>

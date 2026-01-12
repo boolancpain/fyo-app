@@ -11,7 +11,7 @@ model App {
   id        String   @id @default(uuid())
   name      String
   launchUrl String
-  icon      String
+  icon      String?
   gridRow   Int
   gridCol   Int
   createdAt DateTime @default(now())

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './AppModals.module.css';
 import { App } from '@/store/useAppStore';
+import * as LucideIcons from 'lucide-react';
+import { Upload, Search, Link as LinkIcon, Loader2, File } from 'lucide-react';
 
 interface ModalProps {
     isOpen: boolean;
@@ -33,59 +35,156 @@ export function AddEditModal({ isOpen, onClose, mode, app, onConfirm }: AddEditM
     const [name, setName] = useState('');
     const [url, setUrl] = useState('');
     const [icon, setIcon] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [pendingFile, setPendingFile] = useState<File | null>(null);
+    const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (mode === 'EDIT' && app) {
-            setName(app.name);
-            setUrl(app.launchUrl);
-            setIcon(app.icon);
+            setName(app.name || '');
+            setUrl(app.launchUrl || '');
+            setIcon(app.icon || '');
         } else {
             setName('');
             setUrl('');
             setIcon('');
         }
+        setPendingFile(null);
+        if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+        setLocalPreviewUrl(null);
     }, [mode, app, isOpen]);
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setPendingFile(file);
+            const previewUrl = URL.createObjectURL(file);
+            if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+            setLocalPreviewUrl(previewUrl);
+            // Set icon to a dummy value to indicate something is selected
+            setIcon('pending_upload');
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsUploading(true);
+
+        try {
+            let finalIcon = icon;
+
+            // If it was a dummy icon and we have a file, upload it
+            if (finalIcon === 'pending_upload' && pendingFile) {
+                const res = await fetch(`/api/upload?filename=${encodeURIComponent(pendingFile.name)}`, {
+                    method: 'POST',
+                    body: pendingFile,
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || 'Upload failed');
+                }
+                const data = await res.json();
+                finalIcon = data.url;
+            }
+
+            // Fallback to null for default icon
+            if (!finalIcon || finalIcon === 'pending_upload') {
+                finalIcon = null as any; // Cast for now, but finalIcon should be string | null
+            }
+
+            onConfirm({
+                name,
+                url,
+                icon: finalIcon,
+            });
+            onClose();
+        } catch (error) {
+            console.error('Submit error:', error);
+            alert('업로드 중 오류가 발생했습니다.');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     if (!isOpen) return null;
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onConfirm({ name, url, icon });
-        onClose();
-    };
-
     return (
-        <div className={styles.modalOverlay} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-            <div className={styles.modal} onMouseDown={e => e.stopPropagation()}>
-                <h2>{mode === 'ADD' ? '앱 추가' : '앱 정보'}</h2>
+        <div className={styles.modalOverlay} onClick={onClose}>
+            <div className={styles.modal} onClick={e => e.stopPropagation()}>
+                <h2>{mode === 'ADD' ? '새 애플리케이션 추가' : '애플리케이션 정보 수정'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className={styles.formGroup}>
                         <label>이름</label>
                         <input
+                            required
                             value={name}
                             onChange={e => setName(e.target.value)}
-                            placeholder="앱 이름 입력"
-                            required
+                            placeholder="애플리케이션 이름"
                             autoFocus
                         />
                     </div>
                     <div className={styles.formGroup}>
-                        <label>URL</label>
+                        <label>실행 URL</label>
                         <input
+                            required
                             value={url}
                             onChange={e => setUrl(e.target.value)}
-                            placeholder="https://..."
-                            required
+                            placeholder="https://example.com"
                         />
                     </div>
                     <div className={styles.formGroup}>
-                        <label>아이콘 URL (또는 'monitor', 'search', 'github')</label>
-                        <input
-                            value={icon}
-                            onChange={e => setIcon(e.target.value)}
-                            placeholder="이미지 URL 또는 키워드"
-                            required
-                        />
+                        <label>아이콘 설정</label>
+                        <div className={styles.iconContent}>
+                            <div className={styles.imageTabContent}>
+                                <div
+                                    className={styles.uploadArea}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        style={{ display: 'none' }}
+                                        accept="image/*"
+                                        onChange={handleFileSelect}
+                                    />
+                                    {isUploading ? (
+                                        <div className={styles.uploading}>
+                                            <Loader2 size={32} className={styles.spin} />
+                                            <span>업로드 중...</span>
+                                        </div>
+                                    ) : pendingFile ? (
+                                        <div className={styles.uploadPreview}>
+                                            {localPreviewUrl && <img src={localPreviewUrl} alt="local preview" />}
+                                            <span>{pendingFile.name} (선택됨)</span>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.uploadPlaceholder}>
+                                            <Upload size={32} />
+                                            <span>클릭하여 이미지 업로드</span>
+                                            <span style={{ fontSize: '12px', opacity: 0.7 }}>또는 아래에 직접 URL 입력</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className={styles.urlInputArea}>
+                                    <div className={styles.divider}>
+                                        <span>또는</span>
+                                    </div>
+                                    <input
+                                        value={icon && (icon.startsWith('http') || icon.startsWith('/api/blob')) ? icon : ''}
+                                        onChange={e => {
+                                            setIcon(e.target.value);
+                                            setPendingFile(null);
+                                            if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+                                            setLocalPreviewUrl(null);
+                                        }}
+                                        placeholder="이미지 URL을 직접 입력"
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div className={styles.actions}>
                         <button type="button" className={`${styles.btn} ${styles.btnCancel}`} onClick={onClose}>취소</button>

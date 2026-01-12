@@ -3,7 +3,7 @@ import { create } from 'zustand';
 export interface App {
     id: string;
     name: string;
-    icon: string; // 'search' | 'monitor' | 'github'
+    icon: string | null; // Lucide name or image URL/blob path
     launchUrl: string;
     gridPosition: { row: number; col: number };
 }
