@@ -5,19 +5,19 @@ import styles from './Desktop.module.css';
 import { useWindowStore } from '@/store/useWindowStore';
 import { useAppStore, App } from '@/store/useAppStore';
 import { useConfigStore } from '@/store/useConfigStore';
-import { Monitor, Github, Search } from 'lucide-react';
+import { Monitor, Github, Search, File } from 'lucide-react';
 import Window from '@/components/Window/Window';
 
 const getIcon = (iconName: string) => {
     switch (iconName) {
-        case 'search': return <Search size={36} />;
-        case 'monitor': return <Monitor size={36} />;
-        case 'github': return <Github size={36} />;
+        case 'search': return <Search size={64} />;
+        case 'monitor': return <Monitor size={64} />;
+        case 'github': return <Github size={64} />;
         default:
             if (iconName.startsWith('http')) {
                 return <img src={iconName} alt="App Icon" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} />;
             }
-            return <Monitor size={36} />;
+            return <File size={64} />;
     }
 };
 
@@ -153,7 +153,7 @@ export default function Desktop() {
                         }}
                         onDoubleClick={() => openWindow({ id: app.id, name: app.name, launchUrl: app.launchUrl })}
                     >
-                        <div className={`${styles.iconImg} glass`}>
+                        <div className={`${styles.iconImg}`}>
                             {getIcon(app.icon)}
                         </div>
                         <span className={styles.iconName}>{app.name}</span>
