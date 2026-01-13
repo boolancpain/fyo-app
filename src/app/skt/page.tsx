@@ -2,24 +2,29 @@
 
 import React from 'react';
 import styles from './skt.module.css';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 
 interface SKTAccount {
     id: string;
+    icon?: string | null;
+    service: string;
     name: string;
-    enrollDate: string;
+    signupDt: string;
     account: string;
-    pw: string;
+    pwd: string;
     years: number;
-    lastActivationDate: string;
-    contractEndDate: string;
+    activationDt: string;
+    expirationDt: string;
     memo: string;
 }
+
+type SortKey = keyof SKTAccount;
 
 export default function SKTPage() {
     const [data, setData] = React.useState<SKTAccount[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+    const [sortConfig, setSortConfig] = React.useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -40,6 +45,53 @@ export default function SKTPage() {
 
         fetchData();
     }, []);
+
+    const sortedData = React.useMemo(() => {
+        if (!sortConfig) return data;
+
+        const sorted = [...data].sort((a, b) => {
+            const aValue = (a[sortConfig.key] ?? '') as string | number;
+            const bValue = (b[sortConfig.key] ?? '') as string | number;
+
+            if (aValue < bValue) {
+                return sortConfig.direction === 'asc' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'asc' ? 1 : -1;
+            }
+            return 0;
+        });
+        return sorted;
+    }, [data, sortConfig]);
+
+    const requestSort = (key: SortKey) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIcon = (key: SortKey) => {
+        if (!sortConfig || sortConfig.key !== key) {
+            return <ChevronsUpDown size={14} className={styles.sortIcon} />;
+        }
+        return sortConfig.direction === 'asc'
+            ? <ChevronUp size={14} className={styles.sortIcon} />
+            : <ChevronDown size={14} className={styles.sortIcon} />;
+    };
+
+    const renderHeader = (label: string, key: SortKey) => (
+        <th
+            className={`${styles.sortableHeader} ${sortConfig?.key === key ? styles.activeSort : ''}`}
+            onClick={() => requestSort(key)}
+        >
+            <div className={styles.headerContent}>
+                {label}
+                {getSortIcon(key)}
+            </div>
+        </th>
+    );
 
     return (
         <div className={styles.container}>
@@ -67,30 +119,31 @@ export default function SKTPage() {
                     <table className={styles.table}>
                         <thead>
                             <tr>
-                                <th>이름</th>
-                                <th>최초가입일</th>
-                                <th>계정</th>
-                                <th>비밀번호</th>
-                                <th>가입년수</th>
-                                <th>최근개통일</th>
-                                <th>약정종료일</th>
-                                <th>비고</th>
+                                {renderHeader('서비스', 'service')}
+                                {renderHeader('이름', 'name')}
+                                {renderHeader('가입년수', 'years')}
+                                {renderHeader('약정종료일', 'expirationDt')}
+                                {renderHeader('최근개통일', 'activationDt')}
+                                {renderHeader('계정', 'account')}
+                                {renderHeader('비밀번호', 'pwd')}
+                                {renderHeader('비고', 'memo')}
                             </tr>
                         </thead>
                         <tbody>
-                            {data.map((item) => (
+                            {sortedData.map((item) => (
                                 <tr key={item.id}>
-                                    <td>{item.name}</td>
-                                    <td>{item.enrollDate}</td>
-                                    <td>{item.account}</td>
-                                    <td>
-                                        <span className={styles.password}>{item.pw}</span>
+                                    <td style={{ fontWeight: 600, color: '#ffd700' }}>
+                                        <span style={{ marginRight: '8px' }}>{item.icon}</span>
+                                        {item.service}
                                     </td>
+                                    <td>{item.name}</td>
                                     <td>
                                         <span className={styles.years}>{item.years}년</span>
                                     </td>
-                                    <td>{item.lastActivationDate}</td>
-                                    <td>{item.contractEndDate}</td>
+                                    <td>{item.expirationDt}</td>
+                                    <td>{item.activationDt}</td>
+                                    <td>{item.account}</td>
+                                    <td>{item.pwd}</td>
                                     <td>{item.memo}</td>
                                 </tr>
                             ))}

@@ -1,50 +1,37 @@
+import { Client } from '@notionhq/client';
 import { NextResponse } from 'next/server';
 
-const NOTION_SECRET = process.env.NOTION_SECRET;
-const DATABASE_ID = process.env.NOTION_DATABASE_ID;
+const notion = new Client({
+    auth: process.env.NOTION_SECRET,
+});
+
+const DATA_SOURCE_ID = process.env.NOTION_SKT_DATASOURCE_ID;
 
 export async function GET() {
-    if (!NOTION_SECRET || !DATABASE_ID) {
+    if (!process.env.NOTION_SECRET || !DATA_SOURCE_ID) {
         console.error('Missing Notion environment variables');
         return NextResponse.json({ error: 'Notion configuration is missing' }, { status: 500 });
     }
 
     try {
-        const url = `https://api.notion.com/v1/databases/${DATABASE_ID.trim()}/query`;
-
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${NOTION_SECRET}`,
-                'Notion-Version': '2022-06-28',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                sorts: [
-                    {
-                        property: '이름',
-                        direction: 'ascending',
-                    },
-                ],
-            }),
-            cache: 'no-store', // Disable caching for the API route
+        const response = await (notion as any).dataSources.query({
+            data_source_id: DATA_SOURCE_ID.trim(),
+            sorts: [
+                {
+                    property: 'expirationDt',
+                    direction: 'ascending',
+                },
+            ],
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Notion API error response:', errorData);
-            throw new Error(errorData.message || 'Failed to fetch from Notion');
-        }
+        const results = response.results || [];
 
-        const data = await response.json();
-        const results = data.results || [];
-
-        const accounts = results.map((page: any) => {
+        const accounts = await Promise.all(results.map(async (page: any) => {
             const props = page.properties;
             if (!props) return null;
 
             // Helper to extract text from various Notion types
-            const getText = (propName: string) => {
+            const getText = async (propName: string) => {
                 const prop = props[propName];
                 if (!prop) return '-';
 
@@ -74,30 +61,40 @@ export async function GET() {
                 return prop.date.start ? prop.date.start.replace(/-/g, '/') : '-';
             };
 
-            // Helper to extract number
-            const getNumber = (propName: string) => {
-                const prop = props[propName];
-                if (!prop || prop.type !== 'number') return 0;
-                return prop.number || 0;
-            };
+            const signupDt = getDate('signupDt');
+
+            // Calculate full years (man-years) based on signupDt
+            let years = 0;
+            if (signupDt !== '-') {
+                const today = new Date();
+                const signupDate = new Date(signupDt);
+
+                if (!isNaN(signupDate.getTime())) {
+                    years = today.getFullYear() - signupDate.getFullYear();
+                    const m = today.getMonth() - signupDate.getMonth();
+                    if (m < 0 || (m === 0 && today.getDate() < signupDate.getDate())) {
+                        years--;
+                    }
+                }
+            }
 
             return {
                 id: page.id,
-                name: getText('이름'),
-                enrollDate: getDate('가입일'),
-                account: getText('계정'),
-                pw: getText('비밀번호'),
-                years: getNumber('가입년수'),
-                lastActivationDate: getDate('최근개통일'),
-                contractEndDate: getDate('약정종료일'),
-                memo: getText('비고'),
+                icon: page.icon?.type === 'emoji' ? page.icon.emoji : null,
+                name: await getText('nameTo'),
+                service: await getText('service'),
+                signupDt: signupDt,
+                account: await getText('account'),
+                pwd: await getText('pwd'),
+                years: years,
+                activationDt: getDate('activationDt'),
+                expirationDt: getDate('expirationDt'),
+                memo: await getText('memo'),
             };
-        }).filter(Boolean);
+        }));
 
-        console.log('Processed Accounts:', accounts);
-
-
-        return NextResponse.json(accounts);
+        const filteredAccounts = accounts.filter(Boolean);
+        return NextResponse.json(filteredAccounts);
     } catch (error: any) {
         console.error('API Route Error:', error);
         return NextResponse.json({
